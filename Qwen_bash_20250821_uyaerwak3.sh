@@ -1,0 +1,1 @@
+cd jireh-manager
