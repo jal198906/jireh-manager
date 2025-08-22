@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>JIREH MANAGER</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    body { background-color: #f8f9fa; font-family: 'Segoe UI', sans-serif; }
+    .navbar { background-color: #1a4b8c; }
+    .navbar-brand, .nav-link { color: white !important; }
+    .card { border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+    .btn-primary { background-color: #1a4b8c; border: none; }
+    .btn-success { background-color: #28a745; }
+    .footer { text-align: center; margin-top: 50px; color: #6c757d; font-size: 0.9em; }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg">
+    <div class="container-fluid">
+      <a class="navbar-brand fs-3 fw-bold">JIREH MANAGER</a>
+    </div>
+  </nav>
+
+  <div class="container mt-4">
+    <div class="mb-4">
+      <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addClientModal">
+        <i class="bi bi-plus-circle"></i> Agregar Cliente
+      </button>
+    </div>
+
+    <div class="mb-4">
+      <input type="text" id="searchInput" class="form-control" placeholder="Buscar por nombre o lugar..." />
+    </div>
+
+    <ul class="nav nav-tabs mb-3">
+      <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#all">Todos</a></li>
+      <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#paid">Pagados</a></li>
+      <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#pending">Pendientes</a></li>
+    </ul>
+
+    <div class="tab-content">
+      <div class="tab-pane fade show active" id="all">
+        <table class="table table-bordered table-striped">
+          <thead class="table-dark">
+            <tr>
+              <th>Nombre</th>
+              <th>Lugar</th>
+              <th>Monto (Lps)</th>
+              <th>Fecha de Pago</th>
+              <th>Pago</th>
+            </tr>
+          </thead>
+          <tbody id="clientList"></tbody>
+        </table>
+      </div>
+      <div class="tab-pane fade" id="paid">
+        <table class="table table-bordered table-striped">
+          <thead class="table-success">
+            <tr>
+              <th>Nombre</th>
+              <th>Lugar</th>
+              <th>Monto (Lps)</th>
+              <th>Fecha de Pago</th>
+            </tr>
+          </thead>
+          <tbody id="paidList"></tbody>
+        </table>
+      </div>
+      <div class="tab-pane fade" id="pending">
+        <table class="table table-bordered table-striped">
+          <thead class="table-warning">
+            <tr>
+              <th>Nombre</th>
+              <th>Lugar</th>
+              <th>Monto (Lps)</th>
+              <th>Fecha de Pago</th>
+            </tr>
+          </thead>
+          <tbody id="pendingList"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card bg-light p-3 mt-3">
+      <h5>Total Recaudado: <span id="totalAmount" class="text-success">0.00 Lps</span></h5>
+    </div>
+
+    <div class="mt-4">
+      <button class="btn btn-success me-2" onclick="exportToExcel()">
+        <i class="bi bi-file-earmark-excel"></i> Exportar Excel
+      </button>
+      <button class="btn btn-danger" onclick="exportToPDF()">
+        <i class="bi bi-file-earmark-pdf"></i> Exportar PDF
+      </button>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal fade" id="addClientModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Agregar Cliente</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="clientForm">
+            <div class="mb-3">
+              <label>Nombre</label>
+              <input type="text" class="form-control" id="clientName" required />
+            </div>
+            <div class="mb-3">
+              <label>Lugar</label>
+              <input type="text" class="form-control" id="clientPlace" required />
+            </div>
+            <div class="mb-3">
+              <label>Monto (Lps)</label>
+              <input type="number" class="form-control" id="clientAmount" required />
+            </div>
+            <div class="mb-3">
+              <label>Fecha de Pago</label>
+              <select class="form-control" id="paymentDate" required>
+                <option value="15">15 de cada mes</option>
+                <option value="20">20 de cada mes</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn-primary">Guardar</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>&copy; 2025 JIREH MANAGER - Sistema de Gestión de Clientes</p>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    let clients = [];
+
+    async function loadClients() {
+      const res = await fetch('/api/clients');
+      clients = await res.json();
+      renderClients();
+      updateTotals();
+    }
+
+    function renderClients() {
+      const list = document.getElementById('clientList');
+      const paidList = document.getElementById('paidList');
+      const pendingList = document.getElementById('pendingList');
+      const search = document.getElementById('searchInput').value.toLowerCase();
+
+      list.innerHTML = '';
+      paidList.innerHTML = '';
+      pendingList.innerHTML = '';
+
+      clients
+        .filter(c => 
+          c.name.toLowerCase().includes(search) ||
+          c.place.toLowerCase().includes(search)
+        )
+        .forEach(client => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${client.name}</td>
+            <td>${client.place}</td>
+            <td>${client.amount.toFixed(2)}</td>
+            <td>${client.payment_date === '15' ? '15' : '20'} de cada mes</td>
+            <td><input type="checkbox" ${client.paid ? 'checked' : ''} onchange="togglePayment(${client.id})"/></td>
+          `;
+          list.appendChild(tr);
+
+          const trTab = document.createElement('tr');
+          trTab.innerHTML = `
+            <td>${client.name}</td>
+            <td>${client.place}</td>
+            <td>${client.amount.toFixed(2)}</td>
+            <td>${client.payment_date === '15' ? '15' : '20'} de cada mes</td>
+          `;
+
+          if (client.paid) {
+            paidList.appendChild(trTab);
+          } else {
+            pendingList.appendChild(trTab);
+          }
+        });
+    }
+
+    async function togglePayment(id) {
+      const client = clients.find(c => c.id == id);
+      if (client) {
+        await fetch(`/api/clients/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paid: !client.paid })
+        });
+        client.paid = !client.paid;
+        renderClients();
+        updateTotals();
+      }
+    }
+
+    async function updateTotals() {
+      const res = await fetch('/api/summary');
+      const data = await res.json();
+      document.getElementById('totalAmount').textContent = data.total_paid.toFixed(2) + ' Lps';
+    }
+
+    document.getElementById('clientForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const name = document.getElementById('clientName').value;
+      const place = document.getElementById('clientPlace').value;
+      const amount = parseFloat(document.getElementById('clientAmount').value);
+      const payment_date = document.getElementById('paymentDate').value;
+
+      await fetch('/api/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, place, amount, payment_date })
+      });
+
+      this.reset();
+      const modal = bootstrap.Modal.getInstance(document.getElementById('addClientModal'));
+      modal.hide();
+      loadClients();
+    });
+
+    document.getElementById('searchInput').addEventListener('input', renderClients);
+
+    // Cargar al inicio
+    loadClients();
+  </script>
+</body>
+</html>
