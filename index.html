@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JIREH CLIENTES</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-blue: #1e40af;
+            --secondary-blue: #1e3a8a;
+            --accent-orange: #f97316;
+            --light-orange: #fb923c;
+            --light-blue: #dbeafe;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%);
+        }
+        
+        .header-gradient {
+            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 100%);
+        }
+        
+        .btn-primary {
+            background-color: var(--accent-orange);
+            color: white;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--light-orange);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+        }
+        
+        .card-shadow {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+        }
+        
+        .card-shadow:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        .tab-active {
+            background-color: var(--primary-blue);
+            color: white;
+            border-bottom: 4px solid var(--accent-orange);
+        }
+        
+        .tab-inactive {
+            background-color: #f3f4f6;
+            color: #4b5563;
+            border-bottom: 2px solid #d1d5db;
+        }
+        
+        .payment-status-paid {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+        
+        .payment-status-pending {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .drag-handle {
+            cursor: move;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+        
+        .drag-handle:hover {
+            opacity: 1;
+        }
+        
+        .search-input {
+            background-color: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.5rem;
+            padding: 0.5rem 1rem;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
+        }
+        
+        .total-card {
+            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 80%);
+            color: white;
+        }
+        
+        .draggable-item {
+            cursor: grab;
+        }
+        
+        .draggable-item:active {
+            cursor: grabbing;
+        }
+        
+        .fade-enter-active, .fade-leave-active {
+            transition: opacity 0.5s;
+        }
+        
+        .fade-enter, .fade-leave-to {
+            opacity: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="header-gradient text-white shadow-lg">
+            <div class="container mx-auto px-6 py-8">
+                <div class="flex flex-col md:flex-row justify-between items-center">
+                    <div class="text-center md:text-left mb-6 md:mb-0">
+                        <h1 class="text-4xl md:text-5xl font-bold mb-2 flex items-center">
+                            <i class="fas fa-users mr-3"></i>
+                            JIREH CLIENTES
+                        </h1>
+                        <p class="text-xl opacity-90">Gestión de Clientes y Pagos Mensuales</p>
+                    </div>
+                    <div class="flex space-x-4">
+                        <button @click="openModal" class="btn-primary px-6 py-3 rounded-lg font-semibold text-lg flex items-center shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200">
+                            <i class="fas fa-plus mr-2"></i>
+                            Nuevo Cliente
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="container mx-auto px-6 py-8">
+            <!-- Search and Filter Section -->
+            <div class="bg-white rounded-xl card-shadow p-6 mb-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Buscar por Nombre</label>
+                        <input v-model="searchName" type="text" placeholder="Nombre del cliente..." class="search-input w-full">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Buscar por Lugar</label>
+                        <input v-model="searchLocation" type="text" placeholder="Lugar..." class="search-input w-full">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Mes</label>
+                        <select v-model="selectedMonth" class="search-input w-full">
+                            <option value="all">Todos los meses</option>
+                            <option v-for="m in months" :value="m.value">{{ m.name }}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Año</label>
+                        <select v-model="selectedYear" class="search-input w-full">
+                            <option v-for="y in years" :value="y">{{ y }}</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Tabs -->
+                <div class="flex border-b mb-6">
+                    <button @click="activeTab = 'all'" :class="['px-6 py-3 font-semibold text-lg transition-all duration-200', activeTab === 'all' ? 'tab-active' : 'tab-inactive']">
+                        <i class="fas fa-list mr-2"></i> Todos
+                    </button>
+                    <button @click="activeTab = 'paid'" :class="['px-6 py-3 font-semibold text-lg transition-all duration-200', activeTab === 'paid' ? 'tab-active' : 'tab-inactive']">
+                        <i class="fas fa-check-circle mr-2"></i> Pagados
+                    </button>
+                    <button @click="activeTab = 'pending'" :class="['px-6 py-3 font-semibold text-lg transition-all duration-200', activeTab === 'pending' ? 'tab-active' : 'tab-inactive']">
+                        <i class="fas fa-clock mr-2"></i> Pendientes
+                    </button>
+                </div>
+
+                <!-- Total Summary -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-blue-50 rounded-lg p-6 border-l-4 border-blue-500">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-blue-100 text-blue-600 mr-4">
+                                <i class="fas fa-users text-2xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-blue-600">Total Clientes</p>
+                                <p class="text-2xl font-bold text-blue-800">{{ filteredClients.length }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-green-50 rounded-lg p-6 border-l-4 border-green-500">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-green-100 text-green-600 mr-4">
+                                <i class="fas fa-check-circle text-2xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-green-600">Pagados</p>
+                                <p class="text-2xl font-bold text-green-800">{{ paidCount }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-orange-50 rounded-lg p-6 border-l-4 border-orange-500">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-orange-100 text-orange-600 mr-4">
+                                <i class="fas fa-clock text-2xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-orange-600">Pendientes</p>
+                                <p class="text-2xl font-bold text-orange-800">{{ pendingCount }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Monthly Total -->
+                <div class="total-card rounded-lg p-6 mb-8">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-xl font-bold">Total del Mes</h3>
+                            <p class="opacity-80">{{ getMonthName(selectedMonth) }} {{ selectedYear }}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm opacity-80">Lempiras</p>
+                            <p class="text-3xl font-bold">L. {{ formatNumber(monthlyTotal) }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Export Buttons -->
+                <div class="flex flex-wrap gap-4 mb-8">
+                    <button @click="exportToExcel" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold flex items-center transition-colors duration-200">
+                        <i class="fas fa-file-excel mr-2"></i>
+                        Exportar a Excel
+                    </button>
+                    <button @click="exportToPDF" class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold flex items-center transition-colors duration-200">
+                        <i class="fas fa-file-pdf mr-2"></i>
+                        Exportar a PDF
+                    </button>
+                </div>
+
+                <!-- Clients List -->
+                <div class="space-y-4">
+                    <transition-group name="fade" tag="div">
+                        <div v-for="client in filteredClients" :key="client.id" class="bg-white border border-gray-200 rounded-lg p-6 card-shadow draggable-item" draggable="true" @dragstart="dragStart($event, client)" @dragover.prevent @drop="drop($event, client)">
+                            <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
+                                <div class="flex items-start space-x-4 mb-4 md:mb-0">
+                                    <div class="drag-handle text-gray-400">
+                                        <i class="fas fa-grip-vertical"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <h3 class="text-xl font-bold text-gray-800">{{ client.name }}</h3>
+                                        <div class="flex flex-wrap gap-4 mt-2 text-sm text-gray-600">
+                                            <span><i class="fas fa-map-marker-alt mr-1"></i> {{ client.location }}</span>
+                                            <span><i class="fas fa-money-bill-wave mr-1"></i> L. {{ formatNumber(client.amount) }}</span>
+                                            <span><i class="fas fa-calendar-day mr-1"></i> Paga cada {{ client.paymentDay }} de mes</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center space-x-6">
+                                    <div class="flex items-center">
+                                        <input type="checkbox" v-model="client.paid" @change="updatePaymentStatus(client)" class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500">
+                                        <span :class="['ml-2 px-3 py-1 rounded-full text-sm font-medium', client.paid ? 'payment-status-paid' : 'payment-status-pending']">
+                                            {{ client.paid ? 'Pagado' : 'Pendiente' }}
+                                        </span>
+                                    </div>
+                                    <!-- Botones de Editar y Eliminar -->
+                                    <div class="flex items-center space-x-3">
+                                        <button @click="editClient(client)" class="text-blue-600 hover:text-blue-800 transition-colors duration-200" title="Editar">
+                                            <i class="fas fa-edit text-lg"></i>
+                                        </button>
+                                        <button @click="deleteClient(client)" class="text-red-600 hover:text-red-800 transition-colors duration-200" title="Eliminar">
+                                            <i class="fas fa-trash-alt text-lg"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </transition-group>
+
+                    <div v-if="filteredClients.length === 0" class="text-center py-12 text-gray-500">
+                        <i class="fas fa-search text-4xl mb-4 opacity-30"></i>
+                        <h3 class="text-xl font-medium">No se encontraron clientes</h3>
+                        <p>Intenta ajustar los criterios de búsqueda o agrega un nuevo cliente.</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Add/Edit Modal -->
+        <div v-if="showAddModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white rounded-xl card-shadow max-w-md w-full max-h-screen overflow-y-auto">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">{{ editingClient ? 'Editar Cliente' : 'Nuevo Cliente' }}</h2>
+                        <button @click="closeModal" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+                    </div>
+                    
+                    <form @submit.prevent="saveClient">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Nombre del Cliente *</label>
+                                <input v-model="newClient.name" type="text" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Lugar *</label>
+                                <input v-model="newClient.location" type="text" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Cantidad de Pago (Lempiras) *</label>
+                                <input v-model="newClient.amount" type="number" step="0.01" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Día de Pago *</label>
+                                <select v-model="newClient.paymentDay" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <option value="15 al 25">15 al 25</option>
+                                    <option value="1 al 10">1 al 10</option>
+                                </select>
+                            </div>
+                            
+                            <div v-if="editingClient">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Estado de Pago</label>
+                                <div class="flex items-center">
+                                    <input type="checkbox" v-model="newClient.paid" class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500">
+                                    <span class="ml-2">Marcado como pagado</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex space-x-4 mt-8">
+                            <button type="submit" class="btn-primary flex-1 py-3 rounded-lg font-semibold">
+                                {{ editingClient ? 'Actualizar' : 'Agregar' }} Cliente
+                            </button>
+                            <button type="button" @click="closeModal" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-3 rounded-lg font-semibold transition-colors">
+                                Cancelar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Success Toast -->
+        <div v-if="showToast" class="fixed bottom-4 right-4 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center animate-fade-in-up">
+            <i class="fas fa-check-circle mr-2"></i>
+            {{ toastMessage }}
+        </div>
+    </div>
+
+    <script>
+        // Simulated database using localStorage
+        const STORAGE_KEY = 'jireh_clients_data';
+        
+        // Initialize data if not exists
+        function initializeData() {
+            if (!localStorage.getItem(STORAGE_KEY)) {
+                const initialData = {
+                    clients: [],
+                    lastId: 0
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(initialData));
+            }
+        }
+        
+        // Get data from localStorage
+        function getData() {
+            const data = localStorage.getItem(STORAGE_KEY);
+            return data ? JSON.parse(data) : { clients: [], lastId: 0 };
+        }
+        
+        // Save data to localStorage
+        function saveData(data) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        }
+        
+        // Initialize the data
+        initializeData();
+        
+        new Vue({
+            el: '#app',
+            data: {
+                clients: [],
+                newClient: {
+                    name: '',
+                    location: '',
+                    amount: '',
+                    paymentDay: '15',
+                    paid: false
+                },
+                showAddModal: false,
+                editingClient: null,
+                searchName: '',
+                searchLocation: '',
+                selectedMonth: 'all',
+                selectedYear: new Date().getFullYear(),
+                activeTab: 'all',
+                showToast: false,
+                toastMessage: '',
+                draggingClient: null,
+                months: [
+                    { value: 'all', name: 'Todos los meses' },
+                    { value: 1, name: 'Enero' },
+                    { value: 2, name: 'Febrero' },
+                    { value: 3, name: 'Marzo' },
+                    { value: 4, name: 'Abril' },
+                    { value: 5, name: 'Mayo' },
+                    { value: 6, name: 'Junio' },
+                    { value: 7, name: 'Julio' },
+                    { value: 8, name: 'Agosto' },
+                    { value: 9, name: 'Septiembre' },
+                    { value: 10, name: 'Octubre' },
+                    { value: 11, name: 'Noviembre' },
+                    { value: 12, name: 'Diciembre' }
+                ]
+            },
+            computed: {
+                years() {
+                    const currentYear = new Date().getFullYear();
+                    return [currentYear - 2, currentYear - 1, currentYear, currentYear + 1, currentYear + 2];
+                },
+                filteredClients() {
+                    let filtered = this.clients.filter(client => {
+                        const matchesName = client.name.toLowerCase().includes(this.searchName.toLowerCase());
+                        const matchesLocation = client.location.toLowerCase().includes(this.searchLocation.toLowerCase());
+                        
+                        // Filter by month and year
+                        let matchesMonth = true;
+                        if (this.selectedMonth !== 'all') {
+                            const clientMonth = parseInt(this.selectedMonth);
+                            const clientYear = this.selectedYear;
+                            const currentDate = new Date();
+                            const clientDate = new Date(clientYear, clientMonth - 1, client.paymentDay);
+                            
+                            // Reset to current month/year for comparison
+                            const now = new Date(currentDate.getFullYear(), currentDate.getMonth(), client.paymentDay);
+                            if (clientDate.getTime() !== now.getTime()) {
+                                matchesMonth = false;
+                            }
+                        }
+                        
+                        return matchesName && matchesLocation && matchesMonth;
+                    });
+                    
+                    // Filter by payment status
+                    if (this.activeTab === 'paid') {
+                        filtered = filtered.filter(client => client.paid);
+                    } else if (this.activeTab === 'pending') {
+                        filtered = filtered.filter(client => !client.paid);
+                    }
+                    
+                    return filtered;
+                },
+                paidCount() {
+                    return this.filteredClients.filter(client => client.paid).length;
+                },
+                pendingCount() {
+                    return this.filteredClients.filter(client => !client.paid).length;
+                },
+                monthlyTotal() {
+                    return this.filteredClients
+                        .filter(client => client.paid)
+                        .reduce((total, client) => total + parseFloat(client.amount), 0);
+                }
+            },
+            created() {
+                this.loadData();
+            },
+            methods: {
+                loadData() {
+                    const data = getData();
+                    this.clients = data.clients;
+                    this.lastId = data.lastId;
+                },
+                saveData() {
+                    const data = {
+                        clients: this.clients,
+                        lastId: this.clients.length > 0 ? Math.max(...this.clients.map(c => c.id)) : 0
+                    };
+                    saveData(data);
+                },
+                showNotification(message) {
+                    this.toastMessage = message;
+                    this.showToast = true;
+                    setTimeout(() => {
+                        this.showToast = false;
+                    }, 3000);
+                },
+                openModal() {
+                    this.editingClient = null;
+                    this.newClient = {
+                        name: '',
+                        location: '',
+                        amount: '',
+                        paymentDay: '15',
+                        paid: false
+                    };
+                    this.showAddModal = true;
+                },
+                closeModal() {
+                    this.showAddModal = false;
+                    this.editingClient = null;
+                },
+                editClient(client) {
+                    this.editingClient = client;
+                    this.newClient = { ...client };
+                    this.showAddModal = true;
+                },
+                saveClient() {
+                    if (!this.newClient.name || !this.newClient.location || !this.newClient.amount) {
+                        this.showNotification('Por favor, completa todos los campos obligatorios');
+                        return;
+                    }
+                    
+                    if (this.editingClient) {
+                        // Update existing client
+                        Object.assign(this.editingClient, this.newClient);
+                        this.showNotification('Cliente actualizado correctamente');
+                    } else {
+                        // Add new client
+                        const data = getData();
+                        const newId = data.lastId + 1;
+                        const client = {
+                            id: newId,
+                            ...this.newClient,
+                            paid: false
+                        };
+                        this.clients.push(client);
+                        data.lastId = newId;
+                        saveData(data);
+                        this.showNotification('Cliente agregado correctamente');
+                    }
+                    
+                    this.saveData();
+                    this.closeModal();
+                },
+                updatePaymentStatus(client) {
+                    this.saveData();
+                    const status = client.paid ? 'pagado' : 'pendiente';
+                    this.showNotification(`Estado de pago actualizado a ${status}`);
+                },
+                dragStart(event, client) {
+                    event.dataTransfer.setData('text/plain', client.id);
+                    this.draggingClient = client;
+                },
+                drop(event, targetClient) {
+                    const clientId = event.dataTransfer.getData('text/plain');
+                    const sourceClient = this.clients.find(c => c.id == clientId);
+                    const targetIndex = this.clients.indexOf(targetClient);
+                    
+                    if (sourceClient && sourceClient !== targetClient) {
+                        const sourceIndex = this.clients.indexOf(sourceClient);
+                        this.clients.splice(sourceIndex, 1);
+                        this.clients.splice(targetIndex, 0, sourceClient);
+                        this.saveData();
+                        this.showNotification('Orden de clientes actualizado');
+                    }
+                },
+                deleteClient(client) {
+                    if (confirm(`¿Estás seguro de que deseas eliminar al cliente "${client.name}"? Esta acción no se puede deshacer.`)) {
+                        this.clients = this.clients.filter(c => c.id !== client.id);
+                        this.saveData();
+                        this.showNotification('Cliente eliminado correctamente');
+                    }
+                },
+                exportToExcel() {
+                    const data = this.filteredClients.map(client => ({
+                        'Nombre': client.name,
+                        'Lugar': client.location,
+                        'Cantidad (Lempiras)': `L. ${this.formatNumber(client.amount)}`,
+                        'Día de Pago': `Cada ${client.paymentDay} de mes`,
+                        'Estado': client.paid ? 'Pagado' : 'Pendiente',
+                        'Mes': this.getMonthName(this.selectedMonth),
+                        'Año': this.selectedYear
+                    }));
+                    
+                    const ws = XLSX.utils.json_to_sheet(data);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, 'Clientes');
+                    
+                    const monthName = this.selectedMonth === 'all' ? 'todos' : this.getMonthName(this.selectedMonth).toLowerCase();
+                    XLSX.writeFile(wb, `jireh_clientes_${monthName}_${this.selectedYear}.xlsx`);
+                    
+                    this.showNotification('Reporte exportado a Excel');
+                },
+                exportToPDF() {
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF();
+                    
+                    // Title
+                    doc.setFontSize(20);
+                    doc.setTextColor(30, 64, 175);
+                    doc.text('JIREH CLIENTES', 20, 20);
+                    
+                    doc.setFontSize(16);
+                    doc.setTextColor(0, 0, 0);
+                    const monthName = this.getMonthName(this.selectedMonth);
+                    doc.text(`${monthName} ${this.selectedYear}`, 20, 30);
+                    
+                    // Summary
+                    doc.setFontSize(12);
+                    doc.text(`Total de Clientes: ${this.filteredClients.length}`, 20, 40);
+                    doc.text(`Pagados: ${this.paidCount}`, 20, 46);
+                    doc.text(`Pendientes: ${this.pendingCount}`, 20, 52);
+                    doc.text(`Total del Mes: L. ${this.formatNumber(this.monthlyTotal)}`, 20, 58);
+                    
+                    // Table
+                    const tableData = this.filteredClients.map(client => [
+                        client.name,
+                        client.location,
+                        `L. ${this.formatNumber(client.amount)}`,
+                        `Cada ${client.paymentDay} de mes`,
+                        client.paid ? 'Pagado' : 'Pendiente'
+                    ]);
+                    
+                    doc.autoTable({
+                        head: [['Nombre', 'Lugar', 'Cantidad', 'Día de Pago', 'Estado']],
+                        body: tableData,
+                        startY: 65
+                    });
+                    
+                    const monthNameShort = this.selectedMonth === 'all' ? 'todos' : this.getMonthName(this.selectedMonth).toLowerCase();
+                    doc.save(`jireh_clientes_${monthNameShort}_${this.selectedYear}.pdf`);
+                    
+                    this.showNotification('Reporte exportado a PDF');
+                },
+                formatNumber(num) {
+                    return parseFloat(num).toLocaleString('es-HN', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    });
+                },
+                getMonthName(monthValue) {
+                    if (monthValue === 'all') return 'Todos los meses';
+                    const monthNames = [
+                        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+                    ];
+                    return monthNames[monthValue - 1] || '';
+                }
+            }
+        });
+    </script>
+</body>
+</html>
